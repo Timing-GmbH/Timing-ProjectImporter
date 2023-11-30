@@ -1,6 +1,7 @@
 <?php
 
 function callTimingAPI($endpoint, $method = 'GET', $queryParams = [], $body = [], $verbose = false, $dryRun = false) {
+    global $options;
     if ($verbose) {
         echo "API Call: {$method} {$endpoint}\n";
         echo "Query Params: " . json_encode($queryParams) . "\n";
@@ -10,8 +11,12 @@ function callTimingAPI($endpoint, $method = 'GET', $queryParams = [], $body = []
         return [];
     }
 
-    $apiKey = getenv('TIMING_API_KEY');
-    $url = 'https://web.timingapp.com' . $endpoint . '?' . http_build_query($queryParams);
+    $apiKey = $options['TIMING_API_KEY']
+        ?? getenv('TIMING_API_KEY');
+    $host = $options['TIMING_API_HOST']
+        ?? (getenv('TIMING_API_HOST') ?: 'web.timingapp.com');
+
+    $url = 'https://' . $host . $endpoint . '?' . http_build_query($queryParams);
     $ch = curl_init($url);
 
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
@@ -114,8 +119,31 @@ function parseCSV($filePath, $csvDelimiter, $termDelimiter) {
     return $projects;
 }
 
-$csvFilePath = array_pop($argv);
-$options = getopt("", ["team::", "csv-delimiter::", "term-delimiter::", "parent::", "dry-run", "update-existing", "verbose"]);
+function readEnvFile($envFilePath) {
+    if (!file_exists($envFilePath)) {
+        throw new Exception("Env file '{$envFilePath}' does not exist.");
+    }
+    $envContent = file_get_contents($envFilePath);
+    return json_decode($envContent, true);
+}
+
+function mergeOptions($envOptions, $cmdOptions) {
+    foreach ($envOptions as $key => $value) {
+        if (!isset($cmdOptions[$key])) {
+            $cmdOptions[$key] = $value;
+        }
+    }
+    return $cmdOptions;
+}
+
+$cmdOptions = getopt("", ["team::", "csv-delimiter::", "term-delimiter::", "parent::", "dry-run", "update-existing", "verbose", "env::"]);
+$envFilePath = $cmdOptions['env'] ?? null;
+$envOptions = $envFilePath ? readEnvFile($envFilePath) : [];
+
+$options = mergeOptions($envOptions, $cmdOptions);
+
+$csvFilePath = $options['file'] ?? array_pop($argv);
+
 $teamID = $options['team'] ?? null;
 if ($teamID && !str_starts_with($teamID, '/teams/')) {
     $teamID = "/teams/{$teamID}";
@@ -136,7 +164,6 @@ if (!file_exists($csvFilePath)) {
 
 // Step 1: Fetch user's teams
 $teams = callTimingAPI('/api/v1/teams', 'GET', verbose: $verbose);
-var_dump($teams);
 $teamIDs = array_column($teams['data'], 'name', 'id');
 if ($teamID && !isset($teamIDs[$teamID])) {
     $teamIDsWithNames = array_map(function($id, $name) {
