@@ -7,7 +7,7 @@ function callTimingAPI($endpoint, $method = 'GET', $queryParams = [], $body = []
         echo "Query Params: " . json_encode($queryParams) . "\n";
         echo "Body: " . json_encode($body) . "\n";
     }
-    if ($dryRun) {
+    if ($dryRun && $method !== 'GET') {
         return [];
     }
 
@@ -53,10 +53,9 @@ function generateSubpredicates($terms) {
     $subpredicates = [];
     foreach ($terms as $term) {
         if (str_starts_with($term, '#')) {
-            $subpredicates[] = createKeywordsContainRule('keywords', strtolower(substr($term, 1)));
+            $subpredicates[] = createKeywordsContainRule('keywords', strtolower(trim(substr($term, 1))));
         } else {
-            $subpredicates[] = createStringContainsRule('title', strtolower($term));
-            $subpredicates[] = createStringContainsRule('path', strtolower($term));
+            $subpredicates[] = createStringContainsRule('titleOrPath', strtolower(trim($term)));
         }
     }
     return $subpredicates;
@@ -111,7 +110,7 @@ function parseCSV($filePath, $csvDelimiter, $termDelimiter) {
             if (isset($projects[$projectName])) {
                 throw new Exception("Duplicate project name '{$projectName}' found in CSV file.");
             }
-            $terms = explode($termDelimiter, $data[1]);
+            $terms = $data[1] ? explode($termDelimiter, $data[1]) : [];
             $projects[$projectName] = $terms;
         }
         fclose($handle);
@@ -206,10 +205,12 @@ foreach ($csvProjects as $projectName => $terms) {
         }
         $newProject = [
             'title' => $projectName,
-            'predicate' => json_encode(['compound' => ['type' => 'OR', 'subpredicate' => $subpredicates]]),
             'team_id' => $teamID,
             'parent' => $parentProject['self'] ?? null
         ];
+        if (count($subpredicates) > 0) {
+            $newProject['predicate'] = json_encode(['compound' => ['type' => 'OR', 'subpredicate' => $subpredicates]]);
+        }
         callTimingAPI('/api/v1/projects', 'POST', [], $newProject, verbose: $verbose, dryRun: $dryRun);
     } elseif ($updateExisting) {
         // 5b. Update existing project
@@ -220,6 +221,7 @@ foreach ($csvProjects as $projectName => $terms) {
         $existingPredicate = isset($project['predicate'])
             ? json_decode($project['predicate'], true)
             : ['compound' => ['type' => 'OR', 'subpredicate' => []]];
+        $oldPredicate = $existingPredicate;
         if (!isset($existingPredicate['compound']) || $existingPredicate['compound']['type'] !== 'OR') {
             throw new Exception("Invalid predicate format for project '{$projectName}'.");
         }
@@ -231,9 +233,9 @@ foreach ($csvProjects as $projectName => $terms) {
                 $updateMade = true;
             }
         }
-        if ($updateMade) {
+        if ($updateMade && count($subpredicates) > 0) {
             if ($verbose) {
-                echo "Updating project '{$projectName}' with new predicate.\n";
+                echo "Updating project '{$projectName}' with new predicate. Old predicate: " . json_encode($oldPredicate) . "\n";
             }
             $updateBody = ['predicate' => json_encode($existingPredicate)];
             callTimingAPI("/api/v1{$project['self']}", 'PATCH', [], $updateBody, verbose: $verbose, dryRun: $dryRun);
