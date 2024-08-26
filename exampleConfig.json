@@ -1,0 +1,10 @@
+{
+    "team": "The ID of the team you want to add projects to; if you don't know it, just specify an invalid ID and the script will print out the valid IDs",
+    "csv-delimiter": ";",
+    "term-delimiter": ",",
+    "parent": "The name of the project that all of these projects will get added to",
+    "update-existing": true,
+    "verbose": true,
+    "file": "exampleProjects.csv",
+    "TIMING_API_KEY": "An API key generated at https://web.timingapp.com/integrations/tokens"
+}

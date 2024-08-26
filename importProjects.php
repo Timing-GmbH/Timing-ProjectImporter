@@ -149,9 +149,9 @@ if ($teamID && !str_starts_with($teamID, '/teams/')) {
 }
 $csvDelimiter = $options['csv-delimiter'] ?? ',';
 $termDelimiter = $options['term-delimiter'] ?? ',';
-$verbose = isset($options['verbose']);
-$dryRun = isset($options['dry-run']);
-$updateExisting = isset($options['update-existing']);
+$verbose = isset($options['verbose']) ? \filter_var($options['verbose'], FILTER_VALIDATE_BOOLEAN) : false;
+$dryRun = isset($options['dry-run']) ? \filter_var($options['dry-run'], FILTER_VALIDATE_BOOLEAN) : false;
+$updateExisting = isset($options['update-existing']) ? \filter_var($options['update-existing'], FILTER_VALIDATE_BOOLEAN) : false;
 $parentName = $options['parent'] ?? null;
 
 if (!$csvFilePath) {
