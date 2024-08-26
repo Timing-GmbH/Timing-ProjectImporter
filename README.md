@@ -136,6 +136,7 @@ php importProjects.php --env=exampleConfig.json
 - The script currently doesn't support deleting projects or removing existing rules.
 - Large CSV files may take some time to process due to API rate limits.
 - Ensure your project names are unique to avoid conflicts.
+- The syntax for project rules is currently undocumented, and deviating from it may cause the Timing app to crash without recourse. Do not try to change the rule format on your own!
 
 ## Disclaimer
 
